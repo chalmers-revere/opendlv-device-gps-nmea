@@ -1,6 +1,6 @@
 ## OpenDLV Microservice to interface with Trimble GPS/INSS units
 
-This repository provides source code to interface with an Trimble GPS/INSS unit
+This repository provides source code to interface with a Trimble GPS/INSS unit
 providing data in NMEA data format for the OpenDLV software ecosystem.
 
 [![Build Status](https://travis-ci.org/chalmers-revere/opendlv-device-gps-nmea.svg?branch=master)](https://travis-ci.org/chalmers-revere/opendlv-device-gps-nmea) [![License: GPLv3](https://img.shields.io/badge/license-GPL--3-blue.svg
