@@ -24,58 +24,109 @@
 #include <sstream>
 #include <string>
 
-std::pair<bool, std::pair<opendlv::proxy::GeodeticWgs84Reading, opendlv::proxy::GeodeticHeadingReading> > NMEADecoder::decode(const std::string &data) noexcept {
+std::pair<bool, std::vector<std::pair<opendlv::proxy::GeodeticWgs84Reading, opendlv::proxy::GeodeticHeadingReading> > > NMEADecoder::decode(const std::string &data) noexcept {
     bool retVal{false};
-    opendlv::proxy::GeodeticWgs84Reading gps;
-    opendlv::proxy::GeodeticHeadingReading heading;
+    std::vector<std::pair<opendlv::proxy::GeodeticWgs84Reading, opendlv::proxy::GeodeticHeadingReading> > listOfGeodeticData{};
 
-    constexpr std::size_t NMEA_PACKET_LENGTH{72};
-    constexpr uint8_t NMEA_FIRST_BYTE{0xE7};
-    if ( (NMEA_PACKET_LENGTH == data.size()) && (NMEA_FIRST_BYTE == static_cast<uint8_t>(data.at(0))) ) {
-        std::stringstream buffer{data};
+    // Add data to the end...
+    m_buffer.seekp(0, std::ios_base::end);
+    m_buffer.write(data.c_str(), data.size());
 
-        // Decode latitude/longitude.
-        {
-            double latitude{0.0};
-            double longitude{0.0};
-
-            // Move to where latitude/longitude are encoded.
-            constexpr uint32_t START_OF_LAT_LON{23};
-            buffer.seekg(START_OF_LAT_LON);
-            buffer.read(reinterpret_cast<char*>(&latitude), sizeof(double));
-            buffer.read(reinterpret_cast<char*>(&longitude), sizeof(double));
-
-            gps.latitude(latitude / M_PI * 180.0).longitude(longitude / M_PI * 180.0);
-        }
-
-        // Decode heading.
-        {
-            float northHeading{0.0f};
-
-            // Move to where heading is encoded.
-            constexpr uint32_t START_OF_HEADING{52};
-            buffer.seekg(START_OF_HEADING);
-
-            // Extract only three bytes from NMEA.
-            std::array<char, 4> tmp{0, 0, 0, 0};
-            buffer.read(tmp.data(), 3);
-            uint32_t value{0};
-            std::memcpy(&value, tmp.data(), 4);
-            value = le32toh(value);
-            northHeading = value * 1e-6f;
-
-            // Normalize between -M_PI .. M_PI.
-            while (northHeading < -M_PI) {
-                northHeading += 2.0f * static_cast<float>(M_PI);
-            }
-            while (northHeading > M_PI) {
-                northHeading -= 2.0f * static_cast<float>(M_PI);
-            }
-
-            heading.northHeading(northHeading);
-        }
-        retVal = true;
+    // ...but always read from the beginning in case of no header was found yet.
+    uint32_t startOfNextToken{0};
+    if (!m_foundHeader) {
+        m_buffer.seekg(startOfNextToken + m_toRemove, std::ios_base::beg);
     }
-    return std::make_pair(retVal, std::make_pair(gps, heading));
+
+    while ((static_cast<uint32_t>(m_buffer.tellg()) + m_toRemove + static_cast<uint32_t>(NMEADecoderConstants::HEADER_SIZE)) < m_buffer.tellp()) {
+        // Wait for more data if put pointer is smaller than expected buffer fill level.
+        if (     m_buffering
+            && ( (static_cast<uint32_t>(m_buffer.tellg()) + m_toRemove) < static_cast<uint32_t>(m_buffer.tellp()) ) ) {
+            const uint32_t MAX_TO_READ{static_cast<uint32_t>(m_buffer.tellp()) - (static_cast<uint32_t>(m_buffer.tellg()) + m_toRemove)};
+            const uint32_t TO_READ = (MAX_TO_READ < static_cast<uint32_t>(NMEADecoderConstants::CHUNK_SIZE) ? MAX_TO_READ : static_cast<uint32_t>(NMEADecoderConstants::CHUNK_SIZE));
+
+            const uint32_t BEFORE_READ = static_cast<uint32_t>(m_buffer.tellg());
+            m_buffer.get(m_bufferForNextNMEAMessage.data() + m_arrayWriteIndex, TO_READ, '\r');
+            const uint32_t AFTER_READ = static_cast<uint32_t>(m_buffer.tellg());
+            m_arrayWriteIndex += AFTER_READ - BEFORE_READ;
+
+            // Check last character if from sequence \r\n.
+            m_foundCRLF = (0x0D == m_buffer.peek());
+        }
+
+        // Enough data available to decode the requested NMEA payload.
+        if (m_foundCRLF) {
+            std::string nmeaMessage(m_bufferForNextNMEAMessage.data(), m_arrayWriteIndex);
+            auto fields = stringtoolbox::split(nmeaMessage, ',');
+
+            if (NMEADecoderConstants::GGA == m_nextNMEAMessage) {
+                if (5 < fields.size()) {
+                    double latitude = std::stod(fields[1]) / 100.0;
+                    double longitude = std::stod(fields[3]) / 100.0;
+
+                    latitude = static_cast<int32_t>(latitude) + (latitude - static_cast<int32_t>(latitude)) * 100.0 / 60.0;
+                    longitude = static_cast<int32_t>(longitude) + (longitude - static_cast<int32_t>(longitude)) * 100.0 / 60.0;
+
+                    latitude *= ("S" == fields[2] ? -1.0 : 1.0);
+                    longitude *= ("W" == fields[4] ? -1.0 : 1.0);
+
+                    opendlv::proxy::GeodeticWgs84Reading gps;
+                    gps.latitude(latitude).longitude(longitude);
+
+                    opendlv::proxy::GeodeticHeadingReading heading;
+                    listOfGeodeticData.push_back(std::make_pair(gps, heading));
+                    retVal = true;
+                }
+            }
+
+            // Maintain internal buffer status.
+            m_nextNMEAMessage = NMEADecoderConstants::UNKNOWN;
+            m_foundHeader = false;
+            m_buffering = false;
+            m_foundCRLF = false;
+            m_arrayWriteIndex = 0;
+            m_toRemove = 0;
+            startOfNextToken = static_cast<uint32_t>(m_buffer.tellg());
+        }
+
+        // Try decoding $??XYZ header.
+        if (     !m_foundHeader
+            && (   (static_cast<uint32_t>(m_buffer.tellp())
+                 - (static_cast<uint32_t>(m_buffer.tellg()) + m_toRemove))
+                    >= static_cast<uint32_t>(NMEADecoderConstants::HEADER_SIZE)
+               )
+           ) {
+            // Go to where we need to read from.
+            m_buffer.seekg(startOfNextToken + m_toRemove, std::ios::beg);
+
+            std::array<char, static_cast<uint32_t>(NMEADecoderConstants::HEADER_SIZE)> header;
+            m_buffer.read(header.data(), header.size());
+            if ( ('G' == header[3]) &&
+                 ('G' == header[4]) &&
+                 ('A' == header[5]) ) {
+                m_nextNMEAMessage = NMEADecoderConstants::GGA;
+                m_foundHeader = true;
+                m_buffering = true;
+                m_foundCRLF = false;
+                m_arrayWriteIndex = 0;
+            }
+            else {
+                // Nothing known found; skip this byte and try again.
+                m_toRemove++;
+            }
+        }
+    }
+
+    // Discard unused data from buffer but avoid copying data too often.
+    if ( (m_buffer.tellg() > 0) && (m_toRemove > static_cast<uint32_t>(NMEADecoderConstants::MAX_BUFFER)) ) {
+        const std::string s{m_buffer.str().substr(m_buffer.tellg())};
+        m_buffer.clear();
+        m_buffer.str(s);
+        m_buffer.seekp(0, std::ios::end);
+        m_buffer.seekg(0, std::ios::beg);
+        m_toRemove = 0;
+    }
+//#endif
+    return std::make_pair(retVal, listOfGeodeticData);
 }
 

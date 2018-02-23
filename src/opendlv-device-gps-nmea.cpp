@@ -47,34 +47,37 @@ int32_t main(int32_t argc, char **argv) {
         const std::string NMEA_ADDRESS(commandlineArguments["nmea_ip"]);
         const uint32_t NMEA_PORT(std::stoi(commandlineArguments["nmea_port"]));
         NMEADecoder nmeaDecoder;
-        cluon::UDPReceiver fromDevice(NMEA_ADDRESS, NMEA_PORT,
-            [&od4Session = od4, &decoder = nmeaDecoder, senderStamp = ID, VERBOSE](std::string &&d, std::string &&/*from*/, std::chrono::system_clock::time_point &&tp) noexcept {
+        cluon::TCPConnection fromDevice(NMEA_ADDRESS, NMEA_PORT,
+            [&od4Session = od4, &decoder = nmeaDecoder, senderStamp = ID, VERBOSE](std::string &&d, std::chrono::system_clock::time_point &&tp) noexcept {
             auto retVal = decoder.decode(d);
             if (retVal.first) {
                 cluon::data::TimeStamp sampleTime = cluon::time::convert(tp);
 
-                opendlv::proxy::GeodeticWgs84Reading msg1 = retVal.second.first;
-                od4Session.send(msg1, sampleTime, senderStamp);
+                for (auto geodeticTupel : retVal.second) {
+                    opendlv::proxy::GeodeticWgs84Reading msg1 = geodeticTupel.first;
+                    od4Session.send(msg1, sampleTime, senderStamp);
 
-                opendlv::proxy::GeodeticHeadingReading msg2 = retVal.second.second;
-                od4Session.send(msg2, sampleTime, senderStamp);
+                    opendlv::proxy::GeodeticHeadingReading msg2 = geodeticTupel.second;
+                    od4Session.send(msg2, sampleTime, senderStamp);
 
-                // Print values on console.
-                if (VERBOSE) {
-                    std::stringstream buffer;
-                    msg1.accept([](uint32_t, const std::string &, const std::string &) {},
-                               [&buffer](uint32_t, std::string &&, std::string &&n, auto v) { buffer << n << " = " << v << '\n'; },
-                               []() {});
-                    std::cout << buffer.str() << std::endl;
+                    // Print values on console.
+                    if (VERBOSE) {
+                        std::stringstream buffer;
+                        msg1.accept([](uint32_t, const std::string &, const std::string &) {},
+                                   [&buffer](uint32_t, std::string &&, std::string &&n, auto v) { buffer << n << " = " << v << '\n'; },
+                                   []() {});
+                        std::cout << buffer.str() << std::endl;
 
-                    std::stringstream buffer2;
-                    msg2.accept([](uint32_t, const std::string &, const std::string &) {},
-                               [&buffer2](uint32_t, std::string &&, std::string &&n, auto v) { buffer2 << n << " = " << v << '\n'; },
-                               []() {});
-                    std::cout << buffer2.str() << std::endl;
+                        std::stringstream buffer2;
+                        msg2.accept([](uint32_t, const std::string &, const std::string &) {},
+                                   [&buffer2](uint32_t, std::string &&, std::string &&n, auto v) { buffer2 << n << " = " << v << '\n'; },
+                                   []() {});
+                        std::cout << buffer2.str() << std::endl;
+                    }
                 }
             }
-        });
+        },
+        [&argv](){ std::cerr << "[" << argv[0] << "] Connection lost." << std::endl; exit(1); });
 
         // Just sleep as this microservice is data driven.
         using namespace std::literals::chrono_literals;

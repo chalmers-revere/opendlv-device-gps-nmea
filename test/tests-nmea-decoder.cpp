@@ -44,33 +44,120 @@ TEST_CASE("Test NMEADecoder with faulty payload.") {
     REQUIRE(!retVal.first);
 }
 
-TEST_CASE("Test NMEADecoder with sample payload.") {
-    std::vector<uint8_t> sample{
-      0xe7, 0x9c, 0x95, 0x95, 0x08, 0x00, 0x7c, 0x0e,
-      0x00, 0x06, 0x81, 0xfe, 0x45, 0x00, 0x00, 0xf4,
-      0x00, 0x00, 0xaa, 0xff, 0xff, 0x04, 0xc2, 0x92,
-      0xf2, 0x9e, 0x60, 0x0a, 0x35, 0xf0, 0x3f, 0x46,
-      0x63, 0x83, 0x3b, 0x7c, 0x96, 0xcc, 0x3f, 0x23,
-      0x5a, 0xd0, 0x42, 0x32, 0x00, 0x00, 0x05, 0x00,
-      0x00, 0x2c, 0x00, 0x00, 0xeb, 0xae, 0xe0, 0x00,
-      0x59, 0x00, 0xbe, 0x6b, 0xff, 0xe4, 0x1d, 0x01,
-      0x00, 0x00, 0x00, 0xff, 0xff, 0x01, 0xff, 0xe4
-    };
-
-    const std::string DATA(reinterpret_cast<char*>(sample.data()), sample.size());
+TEST_CASE("Test NMEADecoder with single sample payload.") {
+    const std::string GGA{"$GPGGA,172814.0,3723.46587704,N,12202.26957864,W,2,6,1.2,18.893,M,-25.669,M,2.0,0031*4F\r\n"};
 
     NMEADecoder d;
-    auto retVal = d.decode(DATA);
+    auto retVal = d.decode(GGA);
 
     REQUIRE(retVal.first);
 
-    auto msgs = retVal.second;
+    auto listOfGeodeticTupels = retVal.second;
+
+    REQUIRE(!listOfGeodeticTupels.empty());
+    REQUIRE(1 == listOfGeodeticTupels.size());
+
+    auto msgs = listOfGeodeticTupels.front();
     opendlv::proxy::GeodeticWgs84Reading msg1 = msgs.first;
     opendlv::proxy::GeodeticHeadingReading msg2 = msgs.second;
 
-    REQUIRE(58.037722605 == Approx(msg1.latitude()));
-    REQUIRE(12.796579564 == Approx(msg1.longitude()));
+    REQUIRE(37.391098 == Approx(msg1.latitude()));
+    REQUIRE(-122.037826 == Approx(msg1.longitude()));
 
-    REQUIRE(2.1584727764 == Approx(msg2.northHeading()));
+    REQUIRE(0 == Approx(msg2.northHeading()));
+}
+
+TEST_CASE("Test NMEADecoder with sample payload with leading and trailing junk.") {
+    const std::string GGA{"*4F\r\n$GPGGA,172814.0,3723.46587704,N,12202.26957864,W,2,6,1.2,18.893,M,-25.669,M,2.0,0031*4F\r\n$GPGGA,172814.0"};
+
+    NMEADecoder d;
+    auto retVal = d.decode(GGA);
+
+    REQUIRE(retVal.first);
+
+    auto listOfGeodeticTupels = retVal.second;
+
+    REQUIRE(!listOfGeodeticTupels.empty());
+    REQUIRE(1 == listOfGeodeticTupels.size());
+
+    auto msgs = listOfGeodeticTupels.front();
+    opendlv::proxy::GeodeticWgs84Reading msg1 = msgs.first;
+    opendlv::proxy::GeodeticHeadingReading msg2 = msgs.second;
+
+    REQUIRE(37.391098 == Approx(msg1.latitude()));
+    REQUIRE(-122.037826 == Approx(msg1.longitude()));
+
+    REQUIRE(0 == Approx(msg2.northHeading()));
+}
+
+TEST_CASE("Test NMEADecoder with fragmented sample payload with leading and trailing junk.") {
+    const std::string GGA1{"*4F\r\n$GPGGA,172814.0,3723."};
+    const std::string GGA2{"46587704,N,12202.26957864,W,2,6,1.2,18.893,M,-25"};
+    const std::string GGA3{".669,M,2.0,0031*4F\r\n$GPGGA,172814.0"};
+
+    NMEADecoder d;
+
+    auto retVal = d.decode(GGA1);
+    REQUIRE(!retVal.first);
+
+    retVal = d.decode(GGA2);
+    REQUIRE(!retVal.first);
+
+    retVal = d.decode(GGA3);
+    REQUIRE(retVal.first);
+
+    auto listOfGeodeticTupels = retVal.second;
+
+    REQUIRE(!listOfGeodeticTupels.empty());
+    REQUIRE(1 == listOfGeodeticTupels.size());
+
+    auto msgs = listOfGeodeticTupels.front();
+    opendlv::proxy::GeodeticWgs84Reading msg1 = msgs.first;
+    opendlv::proxy::GeodeticHeadingReading msg2 = msgs.second;
+
+    REQUIRE(37.391098 == Approx(msg1.latitude()));
+    REQUIRE(-122.037826 == Approx(msg1.longitude()));
+
+    REQUIRE(0 == Approx(msg2.northHeading()));
+}
+
+TEST_CASE("Test NMEADecoder with fragmented sample payloads with leading and trailing junk.") {
+    const std::string GGA1{"*4F\r\n$GPGGA,172814.0,3723."};
+    const std::string GGA2{"46587704,N,12202.26957864,W,2,6,1.2,18.893,M,-25"};
+    const std::string GGA3{".669,M,2.0,0031*4F\r\n$GPGGA,172814.0,3823.46587704,S,12302.26957864,E,2,6,1.2,18.893,M,-25.669,M,2.0,0031*4F\r\n$GPGGA,1"};
+
+    NMEADecoder d;
+
+    auto retVal = d.decode(GGA1);
+    REQUIRE(!retVal.first);
+
+    retVal = d.decode(GGA2);
+    REQUIRE(!retVal.first);
+
+    retVal = d.decode(GGA3);
+    REQUIRE(retVal.first);
+
+    auto listOfGeodeticTupels = retVal.second;
+
+    REQUIRE(!listOfGeodeticTupels.empty());
+    REQUIRE(2 == listOfGeodeticTupels.size());
+
+    auto msgs = listOfGeodeticTupels.front();
+    opendlv::proxy::GeodeticWgs84Reading msg1 = msgs.first;
+    opendlv::proxy::GeodeticHeadingReading msg2 = msgs.second;
+
+    REQUIRE(37.391098 == Approx(msg1.latitude()));
+    REQUIRE(-122.037826 == Approx(msg1.longitude()));
+
+    REQUIRE(0 == Approx(msg2.northHeading()));
+
+    msgs = listOfGeodeticTupels.back();
+    msg1 = msgs.first;
+    msg2 = msgs.second;
+
+    REQUIRE(-38.391098 == Approx(msg1.latitude()));
+    REQUIRE(123.037826 == Approx(msg1.longitude()));
+
+    REQUIRE(0 == Approx(msg2.northHeading()));
 }
 
