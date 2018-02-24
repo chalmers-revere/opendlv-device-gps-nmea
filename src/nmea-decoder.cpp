@@ -24,12 +24,14 @@
 #include <sstream>
 #include <string>
 
-NMEADecoder::NMEADecoder(std::function<void(const double &latitude, const double &longitude)> delegateLatitudeLongitude,
-                         std::function<void(const float &heading)> delegateHeading) noexcept
+NMEADecoder::NMEADecoder(std::function<void(const double &latitude, const double &longitude, const std::chrono::system_clock::time_point &tp)> delegateLatitudeLongitude,
+                         std::function<void(const float &heading, const std::chrono::system_clock::time_point &tp)> delegateHeading) noexcept
     : m_delegateLatitudeLongitude(std::move(delegateLatitudeLongitude))
     , m_delegateHeading(std::move(delegateHeading)) {}
 
-void NMEADecoder::decode(const std::string &data) noexcept {
+void NMEADecoder::decode(const std::string &data, std::chrono::system_clock::time_point &&tp) noexcept {
+    const std::chrono::system_clock::time_point timestamp{tp};
+
     // Add data to the end...
     m_buffer.seekp(0, std::ios_base::end);
     m_buffer.write(data.c_str(), data.size());
@@ -77,7 +79,7 @@ void NMEADecoder::decode(const std::string &data) noexcept {
                     longitude *= ("W" == fields[4] ? -1.0 : 1.0);
 
                     if (nullptr != m_delegateLatitudeLongitude) {
-                        m_delegateLatitudeLongitude(latitude, longitude);
+                        m_delegateLatitudeLongitude(latitude, longitude, timestamp);
                     }
                 }
             }

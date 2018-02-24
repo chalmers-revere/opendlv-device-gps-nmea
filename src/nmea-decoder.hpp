@@ -20,6 +20,7 @@
 
 #include "nmea-decoder-constants.hpp"
 
+#include <chrono>
 #include <functional>
 #include <sstream>
 #include <string>
@@ -34,16 +35,16 @@ class NMEADecoder {
     NMEADecoder &operator=(NMEADecoder &&) = delete;
 
    public:
-    NMEADecoder(std::function<void(const double &latitude, const double &longitude)> delegateLatitudeLongitude,
-                std::function<void(const float &heading)> delegateHeading) noexcept;
+    NMEADecoder(std::function<void(const double &latitude, const double &longitude, const std::chrono::system_clock::time_point &tp)> delegateLatitudeLongitude,
+                std::function<void(const float &heading, const std::chrono::system_clock::time_point &tp)> delegateHeading) noexcept;
     ~NMEADecoder() = default;
 
    public:
-    void decode(const std::string &data) noexcept;
+    void decode(const std::string &data, std::chrono::system_clock::time_point &&tp) noexcept;
 
    private:
-    std::function<void(const double &latitude, const double &longitude)> m_delegateLatitudeLongitude{};
-    std::function<void(const float &heading)> m_delegateHeading{};
+    std::function<void(const double &latitude, const double &longitude, const std::chrono::system_clock::time_point &tp)> m_delegateLatitudeLongitude{};
+    std::function<void(const float &heading, const std::chrono::system_clock::time_point &tp)> m_delegateHeading{};
 
     bool m_foundHeader{false};
     bool m_foundCRLF{false};

@@ -20,6 +20,7 @@
 
 #include "nmea-decoder.hpp"
 
+#include <chrono>
 #include <string>
 #include <vector>
 
@@ -30,10 +31,10 @@ TEST_CASE("Test NMEADecoder with empty payload.") {
     const std::string DATA;
 
     NMEADecoder d{
-        [&latLonCalled](const double&, const double&){ latLonCalled = true; },
-        [&headingCalled](const float&){ headingCalled = true; }
+        [&latLonCalled](const double&, const double&, const std::chrono::system_clock::time_point &){ latLonCalled = true; },
+        [&headingCalled](const float&, const std::chrono::system_clock::time_point &){ headingCalled = true; }
     };
-    d.decode(DATA);
+    d.decode(DATA, std::chrono::system_clock::time_point());
 
     REQUIRE(!latLonCalled);
     REQUIRE(!headingCalled);
@@ -46,10 +47,10 @@ TEST_CASE("Test NMEADecoder with faulty payload.") {
     const std::string DATA{"Hello World"};
 
     NMEADecoder d{
-        [&latLonCalled](const double&, const double&){ latLonCalled = true; },
-        [&headingCalled](const float&){ headingCalled = true; }
+        [&latLonCalled](const double&, const double&, const std::chrono::system_clock::time_point &){ latLonCalled = true; },
+        [&headingCalled](const float&, const std::chrono::system_clock::time_point &){ headingCalled = true; }
     };
-    d.decode(DATA);
+    d.decode(DATA, std::chrono::system_clock::time_point());
 
     REQUIRE(!latLonCalled);
     REQUIRE(!headingCalled);
@@ -64,10 +65,10 @@ TEST_CASE("Test NMEADecoder with single sample payload.") {
     double longitude{0};
 
     NMEADecoder d{
-        [&latLonCalled, &latitude, &longitude](const double &lat, const double &lon){ latLonCalled = true; latitude = lat; longitude = lon; },
-        [&headingCalled](const float&){ headingCalled = true; }
+        [&latLonCalled, &latitude, &longitude](const double &lat, const double &lon, const std::chrono::system_clock::time_point &){ latLonCalled = true; latitude = lat; longitude = lon; },
+        [&headingCalled](const float&, const std::chrono::system_clock::time_point &){ headingCalled = true; }
     };
-    d.decode(GGA);
+    d.decode(GGA, std::chrono::system_clock::time_point());
 
     REQUIRE(latLonCalled);
     REQUIRE(!headingCalled);
@@ -89,7 +90,7 @@ TEST_CASE("Test NMEADecoder with two consecutive sample payloads.") {
     double longitude2{0};
 
     NMEADecoder d{
-        [&latLonCalled1, &latitude1, &longitude1, &latLonCalled2, &latitude2, &longitude2](const double &lat, const double &lon){ 
+        [&latLonCalled1, &latitude1, &longitude1, &latLonCalled2, &latitude2, &longitude2](const double &lat, const double &lon, const std::chrono::system_clock::time_point &){ 
             if (latLonCalled1 && !latLonCalled2) {
                 latLonCalled2 = true; latitude2 = lat; longitude2 = lon;
             }
@@ -97,10 +98,10 @@ TEST_CASE("Test NMEADecoder with two consecutive sample payloads.") {
                 latLonCalled1 = true; latitude1 = lat; longitude1 = lon;
             }
          },
-        [&headingCalled](const float&){ headingCalled = true; }
+        [&headingCalled](const float&, const std::chrono::system_clock::time_point &){ headingCalled = true; }
     };
     {
-        d.decode(GGA1);
+        d.decode(GGA1, std::chrono::system_clock::time_point());
 
         REQUIRE(latLonCalled1);
         REQUIRE(!latLonCalled2);
@@ -111,7 +112,7 @@ TEST_CASE("Test NMEADecoder with two consecutive sample payloads.") {
     }
 
     {
-        d.decode(GGA2);
+        d.decode(GGA2, std::chrono::system_clock::time_point());
 
         REQUIRE(latLonCalled1);
         REQUIRE(latLonCalled2);
@@ -131,10 +132,10 @@ TEST_CASE("Test NMEADecoder with sample payload with leading and trailing junk."
     double longitude{0};
 
     NMEADecoder d{
-        [&latLonCalled, &latitude, &longitude](const double &lat, const double &lon){ latLonCalled = true; latitude = lat; longitude = lon; },
-        [&headingCalled](const float&){ headingCalled = true; }
+        [&latLonCalled, &latitude, &longitude](const double &lat, const double &lon, const std::chrono::system_clock::time_point &){ latLonCalled = true; latitude = lat; longitude = lon; },
+        [&headingCalled](const float&, const std::chrono::system_clock::time_point &){ headingCalled = true; }
     };
-    d.decode(GGA);
+    d.decode(GGA, std::chrono::system_clock::time_point());
 
     REQUIRE(latLonCalled);
     REQUIRE(!headingCalled);
@@ -154,19 +155,19 @@ TEST_CASE("Test NMEADecoder with fragmented sample payload with leading and trai
     double longitude{0};
 
     NMEADecoder d{
-        [&latLonCalled, &latitude, &longitude](const double &lat, const double &lon){ latLonCalled = true; latitude = lat; longitude = lon; },
-        [&headingCalled](const float&){ headingCalled = true; }
+        [&latLonCalled, &latitude, &longitude](const double &lat, const double &lon, const std::chrono::system_clock::time_point &){ latLonCalled = true; latitude = lat; longitude = lon; },
+        [&headingCalled](const float&, const std::chrono::system_clock::time_point &){ headingCalled = true; }
     };
 
-    d.decode(GGA1);
+    d.decode(GGA1, std::chrono::system_clock::time_point());
     REQUIRE(!latLonCalled);
     REQUIRE(!headingCalled);
 
-    d.decode(GGA2);
+    d.decode(GGA2, std::chrono::system_clock::time_point());
     REQUIRE(!latLonCalled);
     REQUIRE(!headingCalled);
 
-    d.decode(GGA3);
+    d.decode(GGA3, std::chrono::system_clock::time_point());
     REQUIRE(latLonCalled);
     REQUIRE(!headingCalled);
 
@@ -188,7 +189,7 @@ TEST_CASE("Test NMEADecoder with two fragmented sample payloads with leading and
     double longitude2{0};
 
     NMEADecoder d{
-        [&latLonCalled1, &latitude1, &longitude1, &latLonCalled2, &latitude2, &longitude2](const double &lat, const double &lon){ 
+        [&latLonCalled1, &latitude1, &longitude1, &latLonCalled2, &latitude2, &longitude2](const double &lat, const double &lon, const std::chrono::system_clock::time_point &){ 
             if (latLonCalled1 && !latLonCalled2) {
                 latLonCalled2 = true; latitude2 = lat; longitude2 = lon;
             }
@@ -196,20 +197,20 @@ TEST_CASE("Test NMEADecoder with two fragmented sample payloads with leading and
                 latLonCalled1 = true; latitude1 = lat; longitude1 = lon;
             }
          },
-        [&headingCalled](const float&){ headingCalled = true; }
+        [&headingCalled](const float&, const std::chrono::system_clock::time_point &){ headingCalled = true; }
     };
 
-    d.decode(GGA1);
+    d.decode(GGA1, std::chrono::system_clock::time_point());
     REQUIRE(!latLonCalled1);
     REQUIRE(!latLonCalled2);
     REQUIRE(!headingCalled);
 
-    d.decode(GGA2);
+    d.decode(GGA2, std::chrono::system_clock::time_point());
     REQUIRE(!latLonCalled1);
     REQUIRE(!latLonCalled2);
     REQUIRE(!headingCalled);
 
-    d.decode(GGA3);
+    d.decode(GGA3, std::chrono::system_clock::time_point());
     REQUIRE(latLonCalled1);
     REQUIRE(latLonCalled2);
     REQUIRE(!headingCalled);

@@ -44,10 +44,10 @@ int32_t main(int32_t argc, char **argv) {
         };
 
         NMEADecoder nmeaDecoder{
-            [&od4Session = od4, senderStamp = ID, VERBOSE](const double &latitude, const double &longitude) {
+            [&od4Session = od4, senderStamp = ID, VERBOSE](const double &latitude, const double &longitude, const std::chrono::system_clock::time_point &tp) {
                 opendlv::proxy::GeodeticWgs84Reading m;
                 m.latitude(latitude).longitude(longitude);
-                od4Session.send(m, cluon::data::TimeStamp(), senderStamp);
+                od4Session.send(m, cluon::time::convert(tp), senderStamp);
 
                 // Print values on console.
                 if (VERBOSE) {
@@ -58,10 +58,10 @@ int32_t main(int32_t argc, char **argv) {
                     std::cout << buffer.str() << std::endl;
                 }
             },
-            [&od4Session = od4, senderStamp = ID, VERBOSE](const float &heading) {
+            [&od4Session = od4, senderStamp = ID, VERBOSE](const float &heading, const std::chrono::system_clock::time_point &tp) {
                 opendlv::proxy::GeodeticHeadingReading m;
                 m.northHeading(heading);
-                od4Session.send(m, cluon::data::TimeStamp(), senderStamp);
+                od4Session.send(m, cluon::time::convert(tp), senderStamp);
 
                 // Print values on console.
                 if (VERBOSE) {
@@ -80,9 +80,7 @@ int32_t main(int32_t argc, char **argv) {
 
         cluon::TCPConnection fromDevice{NMEA_ADDRESS, NMEA_PORT,
             [&decoder = nmeaDecoder](std::string &&d, std::chrono::system_clock::time_point &&tp) noexcept {
-                cluon::data::TimeStamp sampleTime = cluon::time::convert(tp);
-                (void)sampleTime;
-                decoder.decode(d);
+                decoder.decode(d, std::move(tp));
             },
             [&argv](){ std::cerr << "[" << argv[0] << "] Connection lost." << std::endl; exit(1); }
         };
