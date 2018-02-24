@@ -83,6 +83,26 @@ void NMEADecoder::decode(const std::string &data, std::chrono::system_clock::tim
                     }
                 }
             }
+            else if (NMEADecoderConstants::RMC == m_nextNMEAMessage) {
+                if (8 < fields.size()) {
+                    double latitude = std::stod(fields[2]) / 100.0;
+                    double longitude = std::stod(fields[4]) / 100.0;
+
+                    latitude = static_cast<int32_t>(latitude) + (latitude - static_cast<int32_t>(latitude)) * 100.0 / 60.0;
+                    longitude = static_cast<int32_t>(longitude) + (longitude - static_cast<int32_t>(longitude)) * 100.0 / 60.0;
+
+                    latitude *= ("S" == fields[3] ? -1.0 : 1.0);
+                    longitude *= ("W" == fields[5] ? -1.0 : 1.0);
+                    if (nullptr != m_delegateLatitudeLongitude) {
+                        m_delegateLatitudeLongitude(latitude, longitude, timestamp);
+                    }
+
+                    const float heading = static_cast<float>(std::stod(fields[7]) / 180.0 * M_PI);
+                    if (nullptr != m_delegateHeading) {
+                        m_delegateHeading(heading, timestamp);
+                    }
+                }
+            }
 
             // Maintain internal buffer status.
             m_nextNMEAMessage = NMEADecoderConstants::UNKNOWN;
@@ -107,6 +127,15 @@ void NMEADecoder::decode(const std::string &data, std::chrono::system_clock::tim
                  ('G' == header[4]) &&
                  ('A' == header[5]) ) {
                 m_nextNMEAMessage = NMEADecoderConstants::GGA;
+                m_foundHeader = true;
+                m_buffering = true;
+                m_foundCRLF = false;
+                m_arrayWriteIndex = 0;
+            }
+            else if ( ('R' == header[3]) &&
+                      ('M' == header[4]) &&
+                      ('C' == header[5]) ) {
+                m_nextNMEAMessage = NMEADecoderConstants::RMC;
                 m_foundHeader = true;
                 m_buffering = true;
                 m_foundCRLF = false;

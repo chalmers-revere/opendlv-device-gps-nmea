@@ -56,7 +56,7 @@ TEST_CASE("Test NMEADecoder with faulty payload.") {
     REQUIRE(!headingCalled);
 }
 
-TEST_CASE("Test NMEADecoder with single sample payload.") {
+TEST_CASE("Test NMEADecoder with single sample GGA.") {
     const std::string GGA{"$GPGGA,172814.0,3723.46587704,N,12202.26957864,W,2,6,1.2,18.893,M,-25.669,M,2.0,0031*4F\r\n"};
 
     bool latLonCalled{false};
@@ -77,7 +77,30 @@ TEST_CASE("Test NMEADecoder with single sample payload.") {
     REQUIRE(-122.037826 == Approx(longitude));
 }
 
-TEST_CASE("Test NMEADecoder with two consecutive sample payloads.") {
+TEST_CASE("Test NMEADecoder with single sample RMC.") {
+    const std::string RMC{"$GPRMC,225446,A,4916.45,N,12311.12,W,000.5,054.7,191194,020.3,E*68\r\n"};
+
+    bool latLonCalled{false};
+    bool headingCalled{false};
+    double latitude{0};
+    double longitude{0};
+    float heading{0.0f};
+
+    NMEADecoder d{
+        [&latLonCalled, &latitude, &longitude](const double &lat, const double &lon, const std::chrono::system_clock::time_point &){ latLonCalled = true; latitude = lat; longitude = lon; },
+        [&headingCalled, &heading](const float &h, const std::chrono::system_clock::time_point &){ headingCalled = true; heading = h;}
+    };
+    d.decode(RMC, std::chrono::system_clock::time_point());
+
+    REQUIRE(latLonCalled);
+    REQUIRE(headingCalled);
+
+    REQUIRE(49.274167 == Approx(latitude));
+    REQUIRE(-123.185333 == Approx(longitude));
+    REQUIRE(0.95469f == Approx(heading));
+}
+
+TEST_CASE("Test NMEADecoder with two consecutive sample GGAs.") {
     const std::string GGA1{"$GPGGA,172814.0,3723.46587704,N,12202.26957864,W,2,6,1.2,18.893,M,-25.669,M,2.0,0031*4F\r\n"};
     const std::string GGA2{"$GPGGA,172814.0,3723.46587704,S,12202.26957864,E,2,6,1.2,18.893,M,-25.669,M,2.0,0031*4F\r\n"};
 
@@ -123,7 +146,7 @@ TEST_CASE("Test NMEADecoder with two consecutive sample payloads.") {
     }
 }
 
-TEST_CASE("Test NMEADecoder with sample payload with leading and trailing junk.") {
+TEST_CASE("Test NMEADecoder with sample GGA with leading and trailing junk.") {
     const std::string GGA{"*4F\r\n$GPGGA,172814.0,3723.46587704,N,12202.26957864,W,2,6,1.2,18.893,M,-25.669,M,2.0,0031*4F\r\n$GPGGA,172814.0"};
 
     bool latLonCalled{false};
@@ -144,7 +167,7 @@ TEST_CASE("Test NMEADecoder with sample payload with leading and trailing junk."
     REQUIRE(-122.037826 == Approx(longitude));
 }
 
-TEST_CASE("Test NMEADecoder with fragmented sample payload with leading and trailing junk.") {
+TEST_CASE("Test NMEADecoder with fragmented sample GGA with leading and trailing junk.") {
     const std::string GGA1{"*4F\r\n$GPGGA,172814.0,3723."};
     const std::string GGA2{"46587704,N,12202.26957864,W,2,6,1.2,18.893,M,-25"};
     const std::string GGA3{".669,M,2.0,0031*4F\r\n$GPGGA,172814.0"};
@@ -175,7 +198,7 @@ TEST_CASE("Test NMEADecoder with fragmented sample payload with leading and trai
     REQUIRE(-122.037826 == Approx(longitude));
 }
 
-TEST_CASE("Test NMEADecoder with two fragmented sample payloads with leading and trailing junk.") {
+TEST_CASE("Test NMEADecoder with two fragmented sample GGAs with leading and trailing junk.") {
     const std::string GGA1{"*4F\r\n$GPGGA,172814.0,3723."};
     const std::string GGA2{"46587704,N,12202.26957864,W,2,6,1.2,18.893,M,-25"};
     const std::string GGA3{".669,M,2.0,0031*4F\r\n$GPGGA,172814.0,3823.46587704,S,12302.26957864,E,2,6,1.2,18.893,M,-25.669,M,2.0,0031*4F\r\n"};

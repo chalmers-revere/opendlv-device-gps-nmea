@@ -23,9 +23,10 @@
 enum class NMEADecoderConstants : uint16_t {
     UNKNOWN     = 0,
     HEADER_SIZE = 6,    /*$--XYZ*/
-    CHUNK_SIZE  = 30,
+    CHUNK_SIZE  = 50,
     NMEA_BUFFER = 200,
     GGA         = 100,
+    RMC         = 101,
     MAX_BUFFER  = 32768,
 };
 
