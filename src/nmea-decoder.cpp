@@ -41,7 +41,7 @@ std::pair<bool, std::vector<std::pair<opendlv::proxy::GeodeticWgs84Reading, open
     while ((static_cast<uint32_t>(m_buffer.tellg()) + m_toRemove + static_cast<uint32_t>(NMEADecoderConstants::HEADER_SIZE)) < m_buffer.tellp()) {
         // Wait for more data if put pointer is smaller than expected buffer fill level.
         if (     m_buffering
-            && ( (static_cast<uint32_t>(m_buffer.tellg()) + m_toRemove) < static_cast<uint32_t>(m_buffer.tellp()) ) ) {
+            && ( (static_cast<uint32_t>(m_buffer.tellg()) + m_toRemove) <= static_cast<uint32_t>(m_buffer.tellp()) ) ) {
             const uint32_t MAX_TO_READ{static_cast<uint32_t>(m_buffer.tellp()) - (static_cast<uint32_t>(m_buffer.tellg()) + m_toRemove)};
             const uint32_t TO_READ = (MAX_TO_READ < static_cast<uint32_t>(NMEADecoderConstants::CHUNK_SIZE) ? MAX_TO_READ : static_cast<uint32_t>(NMEADecoderConstants::CHUNK_SIZE));
 
@@ -56,6 +56,10 @@ std::pair<bool, std::vector<std::pair<opendlv::proxy::GeodeticWgs84Reading, open
 
         // Enough data available to decode the requested NMEA payload.
         if (m_foundCRLF) {
+            // Consume CR/LF.
+            m_buffer.get();
+            m_buffer.get();
+
             std::string nmeaMessage(m_bufferForNextNMEAMessage.data(), m_arrayWriteIndex);
             auto fields = stringtoolbox::split(nmeaMessage, ',');
 
@@ -117,6 +121,18 @@ std::pair<bool, std::vector<std::pair<opendlv::proxy::GeodeticWgs84Reading, open
         }
     }
 
+    // Buffer fully consumed; reset.
+    if (m_buffer.tellg() == m_buffer.tellp()) {
+        m_buffer.clear();
+        m_buffer.str("");
+        m_nextNMEAMessage = NMEADecoderConstants::UNKNOWN;
+        m_foundHeader = false;
+        m_buffering = false;
+        m_foundCRLF = false;
+        m_arrayWriteIndex = 0;
+        m_toRemove = 0;
+    }
+
     // Discard unused data from buffer but avoid copying data too often.
     if ( (m_buffer.tellg() > 0) && (m_toRemove > static_cast<uint32_t>(NMEADecoderConstants::MAX_BUFFER)) ) {
         const std::string s{m_buffer.str().substr(m_buffer.tellg())};
@@ -126,7 +142,7 @@ std::pair<bool, std::vector<std::pair<opendlv::proxy::GeodeticWgs84Reading, open
         m_buffer.seekg(0, std::ios::beg);
         m_toRemove = 0;
     }
-//#endif
+
     return std::make_pair(retVal, listOfGeodeticData);
 }
 

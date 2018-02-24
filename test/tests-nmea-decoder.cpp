@@ -67,6 +67,52 @@ TEST_CASE("Test NMEADecoder with single sample payload.") {
     REQUIRE(0 == Approx(msg2.northHeading()));
 }
 
+TEST_CASE("Test NMEADecoder with two consecutive sample payloads.") {
+    const std::string GGA1{"$GPGGA,172814.0,3723.46587704,N,12202.26957864,W,2,6,1.2,18.893,M,-25.669,M,2.0,0031*4F\r\n"};
+    const std::string GGA2{"$GPGGA,172814.0,3723.46587704,S,12202.26957864,E,2,6,1.2,18.893,M,-25.669,M,2.0,0031*4F\r\n"};
+
+    NMEADecoder d;
+    {
+        auto retVal = d.decode(GGA1);
+
+        REQUIRE(retVal.first);
+
+        auto listOfGeodeticTupels = retVal.second;
+
+        REQUIRE(!listOfGeodeticTupels.empty());
+        REQUIRE(1 == listOfGeodeticTupels.size());
+
+        auto msgs = listOfGeodeticTupels.front();
+        opendlv::proxy::GeodeticWgs84Reading msg1 = msgs.first;
+        opendlv::proxy::GeodeticHeadingReading msg2 = msgs.second;
+
+        REQUIRE(37.391098 == Approx(msg1.latitude()));
+        REQUIRE(-122.037826 == Approx(msg1.longitude()));
+
+        REQUIRE(0 == Approx(msg2.northHeading()));
+    }
+
+    {
+        auto retVal = d.decode(GGA2);
+
+        REQUIRE(retVal.first);
+
+        auto listOfGeodeticTupels = retVal.second;
+
+        REQUIRE(!listOfGeodeticTupels.empty());
+        REQUIRE(1 == listOfGeodeticTupels.size());
+
+        auto msgs = listOfGeodeticTupels.front();
+        opendlv::proxy::GeodeticWgs84Reading msg1 = msgs.first;
+        opendlv::proxy::GeodeticHeadingReading msg2 = msgs.second;
+
+        REQUIRE(-37.391098 == Approx(msg1.latitude()));
+        REQUIRE(122.037826 == Approx(msg1.longitude()));
+
+        REQUIRE(0 == Approx(msg2.northHeading()));
+    }
+}
+
 TEST_CASE("Test NMEADecoder with sample payload with leading and trailing junk.") {
     const std::string GGA{"*4F\r\n$GPGGA,172814.0,3723.46587704,N,12202.26957864,W,2,6,1.2,18.893,M,-25.669,M,2.0,0031*4F\r\n$GPGGA,172814.0"};
 
@@ -121,10 +167,10 @@ TEST_CASE("Test NMEADecoder with fragmented sample payload with leading and trai
     REQUIRE(0 == Approx(msg2.northHeading()));
 }
 
-TEST_CASE("Test NMEADecoder with fragmented sample payloads with leading and trailing junk.") {
+TEST_CASE("Test NMEADecoder with two fragmented sample payloads with leading and trailing junk.") {
     const std::string GGA1{"*4F\r\n$GPGGA,172814.0,3723."};
     const std::string GGA2{"46587704,N,12202.26957864,W,2,6,1.2,18.893,M,-25"};
-    const std::string GGA3{".669,M,2.0,0031*4F\r\n$GPGGA,172814.0,3823.46587704,S,12302.26957864,E,2,6,1.2,18.893,M,-25.669,M,2.0,0031*4F\r\n$GPGGA,1"};
+    const std::string GGA3{".669,M,2.0,0031*4F\r\n$GPGGA,172814.0,3823.46587704,S,12302.26957864,E,2,6,1.2,18.893,M,-25.669,M,2.0,0031*4F\r\n"};
 
     NMEADecoder d;
 
