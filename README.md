@@ -1,7 +1,8 @@
 ## OpenDLV Microservice to interface with Trimble GPS/INSS units
 
 This repository provides source code to interface with a Trimble GPS/INSS unit
-providing data in NMEA data format for the OpenDLV software ecosystem.
+providing data in NMEA data format for the OpenDLV software ecosystem. This
+NMEA decoder extracts latitude/longitude from GGA and RMC, and heading from RMC.
 
 [![Build Status](https://travis-ci.org/chalmers-revere/opendlv-device-gps-nmea.svg?branch=master)](https://travis-ci.org/chalmers-revere/opendlv-device-gps-nmea) [![License: GPLv3](https://img.shields.io/badge/license-GPL--3-blue.svg
 )](https://www.gnu.org/licenses/gpl-3.0.txt)
@@ -35,7 +36,7 @@ the messages according to OpenDLV Standard Message Set into session 111 in
 Google Protobuf format, simply start it as follows:
 
 ```
-docker run --init --rm --net=host chalmersrevere/opendlv-device-gps-nmea-multi:v0.0.2 opendlv-device-gps-nmea --nmea_ip=10.42.42.112 --nmea_port=9999 --cid=111 --verbose
+docker run --init --rm --net=host chalmersrevere/opendlv-device-gps-nmea-multi:v0.0.3 opendlv-device-gps-nmea --nmea_ip=10.42.42.112 --nmea_port=9999 --cid=111 --verbose
 ```
 
 ## Build from sources on the example of Ubuntu 16.04 LTS
