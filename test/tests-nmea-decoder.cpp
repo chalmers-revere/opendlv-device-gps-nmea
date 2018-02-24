@@ -246,7 +246,7 @@ TEST_CASE("Test NMEADecoder with fragmented sample GGA with leading and trailing
     REQUIRE(-122.037826 == Approx(longitude));
 }
 
-TEST_CASE("Test NMEADecoder with two fragmented sample GGAs with leading and trailing junk.") {
+TEST_CASE("Test NMEADecoder with two fragmented sample GGAs with leading junk.") {
     const std::string GGA1{"*4F\r\n$GPGGA,172814.0,3723."};
     const std::string GGA2{"46587704,N,12202.26957864,W,2,6,1.2,18.893,M,-25"};
     const std::string GGA3{".669,M,2.0,0031*4F\r\n$GPGGA,172814.0,3823.46587704,S,12302.26957864,E,2,6,1.2,18.893,M,-25.669,M,2.0,0031*4F\r\n"};
@@ -290,5 +290,60 @@ TEST_CASE("Test NMEADecoder with two fragmented sample GGAs with leading and tra
     REQUIRE(-122.037826 == Approx(longitude1));
     REQUIRE(-38.391098 == Approx(latitude2));
     REQUIRE(123.037826 == Approx(longitude2));
+}
+
+TEST_CASE("Test NMEADecoder with two fragmented sample GGA and RMC with leading and trailing junk.") {
+    const std::string DATA1{"*4F\r\n$GPGGA,172814.0,3723."};
+    const std::string DATA2{"46587704,N,12202.26957864,W,2,6,1.2,18.893,M,-25"};
+    const std::string DATA3{".669,M,2.0,0031*4F\r\n$GPRMC,225446,A,4916.45,N,12311.12,W,000.5,054.7"};
+    const std::string DATA4{",191194,020.3,E*68\r\n$GPGGA,172814.0"};
+
+    bool latLonCalled1{false};
+    bool latLonCalled2{false};
+    bool headingCalled{false};
+    double latitude1{0};
+    double longitude1{0};
+    double latitude2{0};
+    double longitude2{0};
+    float heading{0.0f};
+
+    NMEADecoder d{
+        [&latLonCalled1, &latitude1, &longitude1, &latLonCalled2, &latitude2, &longitude2](const double &lat, const double &lon, const std::chrono::system_clock::time_point &){ 
+            if (latLonCalled1 && !latLonCalled2) {
+                latLonCalled2 = true; latitude2 = lat; longitude2 = lon;
+            }
+            if (!latLonCalled1 && !latLonCalled2) {
+                latLonCalled1 = true; latitude1 = lat; longitude1 = lon;
+            }
+         },
+        [&headingCalled, &heading](const float &h, const std::chrono::system_clock::time_point &){ headingCalled = true; heading = h; }
+    };
+
+    d.decode(DATA1, std::chrono::system_clock::time_point());
+    REQUIRE(!latLonCalled1);
+    REQUIRE(!latLonCalled2);
+    REQUIRE(!headingCalled);
+
+    d.decode(DATA2, std::chrono::system_clock::time_point());
+    REQUIRE(!latLonCalled1);
+    REQUIRE(!latLonCalled2);
+    REQUIRE(!headingCalled);
+
+    d.decode(DATA3, std::chrono::system_clock::time_point());
+    REQUIRE(latLonCalled1);
+    REQUIRE(!latLonCalled2);
+    REQUIRE(!headingCalled);
+
+    REQUIRE(37.391098 == Approx(latitude1));
+    REQUIRE(-122.037826 == Approx(longitude1));
+
+    d.decode(DATA4, std::chrono::system_clock::time_point());
+    REQUIRE(latLonCalled1);
+    REQUIRE(latLonCalled2);
+    REQUIRE(headingCalled);
+
+    REQUIRE(49.274167 == Approx(latitude2));
+    REQUIRE(-123.185333 == Approx(longitude2));
+    REQUIRE(0.95469f == Approx(heading));
 }
 
