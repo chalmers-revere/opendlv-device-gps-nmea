@@ -63,6 +63,7 @@ std::pair<bool, std::vector<std::pair<opendlv::proxy::GeodeticWgs84Reading, open
             std::string nmeaMessage(m_bufferForNextNMEAMessage.data(), m_arrayWriteIndex);
             auto fields = stringtoolbox::split(nmeaMessage, ',');
 
+            // TODO: Use lambdas to register delegates for lat/lon and heading.
             if (NMEADecoderConstants::GGA == m_nextNMEAMessage) {
                 if (5 < fields.size()) {
                     double latitude = std::stod(fields[1]) / 100.0;
@@ -85,11 +86,8 @@ std::pair<bool, std::vector<std::pair<opendlv::proxy::GeodeticWgs84Reading, open
 
             // Maintain internal buffer status.
             m_nextNMEAMessage = NMEADecoderConstants::UNKNOWN;
-            m_foundHeader = false;
-            m_buffering = false;
-            m_foundCRLF = false;
-            m_arrayWriteIndex = 0;
-            m_toRemove = 0;
+            m_foundHeader = m_buffering = m_foundCRLF = false;
+            m_arrayWriteIndex = m_toRemove = 0;
             startOfNextToken = static_cast<uint32_t>(m_buffer.tellg());
         }
 
@@ -126,11 +124,8 @@ std::pair<bool, std::vector<std::pair<opendlv::proxy::GeodeticWgs84Reading, open
         m_buffer.clear();
         m_buffer.str("");
         m_nextNMEAMessage = NMEADecoderConstants::UNKNOWN;
-        m_foundHeader = false;
-        m_buffering = false;
-        m_foundCRLF = false;
-        m_arrayWriteIndex = 0;
-        m_toRemove = 0;
+        m_foundHeader = m_buffering = m_foundCRLF = false;
+        m_arrayWriteIndex = m_toRemove = 0;
     }
 
     // Discard unused data from buffer but avoid copying data too often.
@@ -140,7 +135,7 @@ std::pair<bool, std::vector<std::pair<opendlv::proxy::GeodeticWgs84Reading, open
         m_buffer.str(s);
         m_buffer.seekp(0, std::ios::end);
         m_buffer.seekg(0, std::ios::beg);
-        m_toRemove = 0;
+        m_arrayWriteIndex = m_toRemove = 0;
     }
 
     return std::make_pair(retVal, listOfGeodeticData);
