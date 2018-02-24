@@ -146,6 +146,54 @@ TEST_CASE("Test NMEADecoder with two consecutive sample GGAs.") {
     }
 }
 
+TEST_CASE("Test NMEADecoder with two consecutive sample GGA and RMC.") {
+    const std::string GGA{"$GPGGA,172814.0,3723.46587704,N,12202.26957864,W,2,6,1.2,18.893,M,-25.669,M,2.0,0031*4F\r\n"};
+    const std::string RMC{"$GPRMC,225446,A,4916.45,N,12311.12,W,000.5,054.7,191194,020.3,E*68\r\n"};
+
+    bool latLonCalled1{false};
+    bool latLonCalled2{false};
+    bool headingCalled{false};
+    double latitude1{0};
+    double longitude1{0};
+    double latitude2{0};
+    double longitude2{0};
+    float heading{0.0f};
+
+    NMEADecoder d{
+        [&latLonCalled1, &latitude1, &longitude1, &latLonCalled2, &latitude2, &longitude2](const double &lat, const double &lon, const std::chrono::system_clock::time_point &){ 
+            if (latLonCalled1 && !latLonCalled2) {
+                latLonCalled2 = true; latitude2 = lat; longitude2 = lon;
+            }
+            if (!latLonCalled1 && !latLonCalled2) {
+                latLonCalled1 = true; latitude1 = lat; longitude1 = lon;
+            }
+         },
+        [&headingCalled, &heading](const float &h, const std::chrono::system_clock::time_point &){ headingCalled = true; heading = h; }
+    };
+    {
+        d.decode(GGA, std::chrono::system_clock::time_point());
+
+        REQUIRE(latLonCalled1);
+        REQUIRE(!latLonCalled2);
+        REQUIRE(!headingCalled);
+
+        REQUIRE(37.391098 == Approx(latitude1));
+        REQUIRE(-122.037826 == Approx(longitude1));
+    }
+
+    {
+        d.decode(RMC, std::chrono::system_clock::time_point());
+
+        REQUIRE(latLonCalled1);
+        REQUIRE(latLonCalled2);
+        REQUIRE(headingCalled);
+
+        REQUIRE(49.274167 == Approx(latitude2));
+        REQUIRE(-123.185333 == Approx(longitude2));
+        REQUIRE(0.95469f == Approx(heading));
+    }
+}
+
 TEST_CASE("Test NMEADecoder with sample GGA with leading and trailing junk.") {
     const std::string GGA{"*4F\r\n$GPGGA,172814.0,3723.46587704,N,12202.26957864,W,2,6,1.2,18.893,M,-25.669,M,2.0,0031*4F\r\n$GPGGA,172814.0"};
 
