@@ -43,41 +43,49 @@ int32_t main(int32_t argc, char **argv) {
             [](auto){}
         };
 
-        // Interface to a Trimble unit providing data in NMEA format.
-        const std::string NMEA_ADDRESS(commandlineArguments["nmea_ip"]);
-        const uint32_t NMEA_PORT(std::stoi(commandlineArguments["nmea_port"]));
-        NMEADecoder nmeaDecoder;
-        cluon::TCPConnection fromDevice(NMEA_ADDRESS, NMEA_PORT,
-            [&od4Session = od4, &decoder = nmeaDecoder, senderStamp = ID, VERBOSE](std::string &&d, std::chrono::system_clock::time_point &&tp) noexcept {
-            auto retVal = decoder.decode(d);
-            if (retVal.first) {
-                cluon::data::TimeStamp sampleTime = cluon::time::convert(tp);
+        NMEADecoder nmeaDecoder{
+            [&od4Session = od4, senderStamp = ID, VERBOSE](const double &latitude, const double &longitude) {
+                opendlv::proxy::GeodeticWgs84Reading m;
+                m.latitude(latitude).longitude(longitude);
+                od4Session.send(m, cluon::data::TimeStamp(), senderStamp);
 
-                for (auto geodeticTupel : retVal.second) {
-                    opendlv::proxy::GeodeticWgs84Reading msg1 = geodeticTupel.first;
-                    od4Session.send(msg1, sampleTime, senderStamp);
+                // Print values on console.
+                if (VERBOSE) {
+                    std::stringstream buffer;
+                    m.accept([](uint32_t, const std::string &, const std::string &) {},
+                             [&buffer](uint32_t, std::string &&, std::string &&n, auto v) { buffer << n << " = " << v << '\n'; },
+                             []() {});
+                    std::cout << buffer.str() << std::endl;
+                }
+            },
+            [&od4Session = od4, senderStamp = ID, VERBOSE](const float &heading) {
+                opendlv::proxy::GeodeticHeadingReading m;
+                m.northHeading(heading);
+                od4Session.send(m, cluon::data::TimeStamp(), senderStamp);
 
-                    opendlv::proxy::GeodeticHeadingReading msg2 = geodeticTupel.second;
-                    od4Session.send(msg2, sampleTime, senderStamp);
-
-                    // Print values on console.
-                    if (VERBOSE) {
-                        std::stringstream buffer;
-                        msg1.accept([](uint32_t, const std::string &, const std::string &) {},
-                                   [&buffer](uint32_t, std::string &&, std::string &&n, auto v) { buffer << n << " = " << v << '\n'; },
-                                   []() {});
-                        std::cout << buffer.str() << std::endl;
-
-                        std::stringstream buffer2;
-                        msg2.accept([](uint32_t, const std::string &, const std::string &) {},
-                                   [&buffer2](uint32_t, std::string &&, std::string &&n, auto v) { buffer2 << n << " = " << v << '\n'; },
-                                   []() {});
-                        std::cout << buffer2.str() << std::endl;
-                    }
+                // Print values on console.
+                if (VERBOSE) {
+                    std::stringstream buffer;
+                    m.accept([](uint32_t, const std::string &, const std::string &) {},
+                             [&buffer](uint32_t, std::string &&, std::string &&n, auto v) { buffer << n << " = " << v << '\n'; },
+                             []() {});
+                    std::cout << buffer.str() << std::endl;
                 }
             }
-        },
-        [&argv](){ std::cerr << "[" << argv[0] << "] Connection lost." << std::endl; exit(1); });
+        };
+
+        // Interface to a Trimble unit providing data in NMEA format.
+        const std::string NMEA_ADDRESS(commandlineArguments["nmea_ip"]);
+        const uint16_t NMEA_PORT(std::stoi(commandlineArguments["nmea_port"]));
+
+        cluon::TCPConnection fromDevice{NMEA_ADDRESS, NMEA_PORT,
+            [&decoder = nmeaDecoder](std::string &&d, std::chrono::system_clock::time_point &&tp) noexcept {
+                cluon::data::TimeStamp sampleTime = cluon::time::convert(tp);
+                (void)sampleTime;
+                decoder.decode(d);
+            },
+            [&argv](){ std::cerr << "[" << argv[0] << "] Connection lost." << std::endl; exit(1); }
+        };
 
         // Just sleep as this microservice is data driven.
         using namespace std::literals::chrono_literals;

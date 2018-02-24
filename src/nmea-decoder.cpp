@@ -24,10 +24,12 @@
 #include <sstream>
 #include <string>
 
-std::pair<bool, std::vector<std::pair<opendlv::proxy::GeodeticWgs84Reading, opendlv::proxy::GeodeticHeadingReading> > > NMEADecoder::decode(const std::string &data) noexcept {
-    bool retVal{false};
-    std::vector<std::pair<opendlv::proxy::GeodeticWgs84Reading, opendlv::proxy::GeodeticHeadingReading> > listOfGeodeticData{};
+NMEADecoder::NMEADecoder(std::function<void(const double &latitude, const double &longitude)> delegateLatitudeLongitude,
+                         std::function<void(const float &heading)> delegateHeading) noexcept
+    : m_delegateLatitudeLongitude(std::move(delegateLatitudeLongitude))
+    , m_delegateHeading(std::move(delegateHeading)) {}
 
+void NMEADecoder::decode(const std::string &data) noexcept {
     // Add data to the end...
     m_buffer.seekp(0, std::ios_base::end);
     m_buffer.write(data.c_str(), data.size());
@@ -63,7 +65,6 @@ std::pair<bool, std::vector<std::pair<opendlv::proxy::GeodeticWgs84Reading, open
             std::string nmeaMessage(m_bufferForNextNMEAMessage.data(), m_arrayWriteIndex);
             auto fields = stringtoolbox::split(nmeaMessage, ',');
 
-            // TODO: Use lambdas to register delegates for lat/lon and heading.
             if (NMEADecoderConstants::GGA == m_nextNMEAMessage) {
                 if (5 < fields.size()) {
                     double latitude = std::stod(fields[1]) / 100.0;
@@ -75,12 +76,9 @@ std::pair<bool, std::vector<std::pair<opendlv::proxy::GeodeticWgs84Reading, open
                     latitude *= ("S" == fields[2] ? -1.0 : 1.0);
                     longitude *= ("W" == fields[4] ? -1.0 : 1.0);
 
-                    opendlv::proxy::GeodeticWgs84Reading gps;
-                    gps.latitude(latitude).longitude(longitude);
-
-                    opendlv::proxy::GeodeticHeadingReading heading;
-                    listOfGeodeticData.push_back(std::make_pair(gps, heading));
-                    retVal = true;
+                    if (nullptr != m_delegateLatitudeLongitude) {
+                        m_delegateLatitudeLongitude(latitude, longitude);
+                    }
                 }
             }
 
@@ -137,7 +135,5 @@ std::pair<bool, std::vector<std::pair<opendlv::proxy::GeodeticWgs84Reading, open
         m_buffer.seekg(0, std::ios::beg);
         m_arrayWriteIndex = m_toRemove = 0;
     }
-
-    return std::make_pair(retVal, listOfGeodeticData);
 }
 

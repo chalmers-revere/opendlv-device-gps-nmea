@@ -18,9 +18,9 @@
 #ifndef NMEA_DECODER
 #define NMEA_DECODER
 
-#include "opendlv-standard-message-set.hpp"
 #include "nmea-decoder-constants.hpp"
 
+#include <functional>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -34,13 +34,17 @@ class NMEADecoder {
     NMEADecoder &operator=(NMEADecoder &&) = delete;
 
    public:
-    NMEADecoder() = default;
+    NMEADecoder(std::function<void(const double &latitude, const double &longitude)> delegateLatitudeLongitude,
+                std::function<void(const float &heading)> delegateHeading) noexcept;
     ~NMEADecoder() = default;
 
    public:
-    std::pair<bool, std::vector<std::pair<opendlv::proxy::GeodeticWgs84Reading, opendlv::proxy::GeodeticHeadingReading> > > decode(const std::string &data) noexcept;
+    void decode(const std::string &data) noexcept;
 
    private:
+    std::function<void(const double &latitude, const double &longitude)> m_delegateLatitudeLongitude{};
+    std::function<void(const float &heading)> m_delegateHeading{};
+
     bool m_foundHeader{false};
     bool m_foundCRLF{false};
     bool m_buffering{false};
