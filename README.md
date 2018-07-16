@@ -36,7 +36,7 @@ the messages according to OpenDLV Standard Message Set into session 111 in
 Google Protobuf format, simply start it as follows:
 
 ```
-docker run --init --rm --net=host chalmersrevere/opendlv-device-gps-nmea-multi:v0.0.6 opendlv-device-gps-nmea --nmea_ip=10.42.42.112 --nmea_port=9999 --cid=111 --verbose
+docker run --init --rm --net=host chalmersrevere/opendlv-device-gps-nmea-multi:v0.0.7 opendlv-device-gps-nmea --nmea_ip=10.42.42.112 --nmea_port=9999 --cid=111 --verbose
 ```
 
 ## Build from sources on the example of Ubuntu 16.04 LTS
