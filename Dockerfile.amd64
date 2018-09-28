@@ -36,5 +36,5 @@ MAINTAINER Christian Berger "christian.berger@gu.se"
 
 WORKDIR /usr/bin
 COPY --from=builder /tmp/opendlv-device-gps-nmea-dest/bin/opendlv-device-gps-nmea .
-CMD ["/usr/bin/opendlv-device-gps-nmea"]
+ENTRYPOINT ["/usr/bin/opendlv-device-gps-nmea"]
 

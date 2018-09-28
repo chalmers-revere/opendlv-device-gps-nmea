@@ -35,7 +35,7 @@ RUN mkdir build && \
     cmake -D CMAKE_BUILD_TYPE=Release -D CMAKE_INSTALL_PREFIX=/tmp/opendlv-device-gps-nmea-dest .. && \
     make && make test && make install
 
-RUN [ "cross-build-end" ]
+ENTRYPOINT [ "cross-build-end" ]
 
 
 # Part to deploy opendlv-device-gps-nmea.
