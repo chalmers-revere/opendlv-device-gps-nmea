@@ -59,7 +59,7 @@ void NMEADecoder::decode(const std::string &data, std::chrono::system_clock::tim
         }
 
         // Enough data available to decode the requested NMEA payload.
-        if (m_foundCRLF) {
+        if (m_foundCRLF && m_foundHeader) {
             // Consume CR/LF.
             m_buffer.get();
             m_buffer.get();

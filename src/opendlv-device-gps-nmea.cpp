@@ -22,6 +22,7 @@
 
 #include <cstdint>
 #include <iostream>
+#include <iomanip>
 #include <sstream>
 #include <string>
 #include <thread>
@@ -53,7 +54,7 @@ int32_t main(int32_t argc, char **argv) {
                 if (VERBOSE) {
                     std::stringstream buffer;
                     m.accept([](uint32_t, const std::string &, const std::string &) {},
-                             [&buffer](uint32_t, std::string &&, std::string &&n, auto v) { buffer << n << " = " << v << '\n'; },
+                             [&buffer](uint32_t, std::string &&, std::string &&n, auto v) { buffer << n << " = " << std::setprecision(9) << v << '\n'; },
                              []() {});
                     std::cout << buffer.str() << std::endl;
                 }
@@ -67,7 +68,7 @@ int32_t main(int32_t argc, char **argv) {
                 if (VERBOSE) {
                     std::stringstream buffer;
                     m.accept([](uint32_t, const std::string &, const std::string &) {},
-                             [&buffer](uint32_t, std::string &&, std::string &&n, auto v) { buffer << n << " = " << v << '\n'; },
+                             [&buffer](uint32_t, std::string &&, std::string &&n, auto v) { buffer << n << " = " << std::setprecision(9) << v << '\n'; },
                              []() {});
                     std::cout << buffer.str() << std::endl;
                 }

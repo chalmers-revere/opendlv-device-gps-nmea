@@ -20,7 +20,7 @@
 
 #include <cstdint>
 
-enum class NMEADecoderConstants : uint16_t {
+enum class NMEADecoderConstants : uint32_t {
     UNKNOWN     = 0,
     HEADER_SIZE = 6,    /*$--XYZ*/
     CHUNK_SIZE  = 50,
