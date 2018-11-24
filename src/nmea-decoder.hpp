@@ -18,14 +18,9 @@
 #ifndef NMEA_DECODER
 #define NMEA_DECODER
 
-#include "nmea-decoder-constants.hpp"
-
 #include <chrono>
 #include <functional>
-#include <sstream>
 #include <string>
-#include <vector>
-#include <utility>
 
 class NMEADecoder {
    private:
@@ -37,23 +32,21 @@ class NMEADecoder {
    public:
     NMEADecoder(std::function<void(const double &latitude, const double &longitude, const std::chrono::system_clock::time_point &tp)> delegateLatitudeLongitude,
                 std::function<void(const float &heading, const std::chrono::system_clock::time_point &tp)> delegateHeading) noexcept;
-    ~NMEADecoder() = default;
+    ~NMEADecoder();
 
    public:
     void decode(const std::string &data, std::chrono::system_clock::time_point &&tp) noexcept;
 
    private:
+    size_t parseBuffer(const uint8_t *buffer, const size_t size, std::chrono::system_clock::time_point &&tp);
+
+   private:
+    uint8_t *m_buffer{nullptr};
+    size_t m_size{0};
+
+   private:
     std::function<void(const double &latitude, const double &longitude, const std::chrono::system_clock::time_point &tp)> m_delegateLatitudeLongitude{};
     std::function<void(const float &heading, const std::chrono::system_clock::time_point &tp)> m_delegateHeading{};
-
-    bool m_foundHeader{false};
-    bool m_foundCRLF{false};
-    bool m_buffering{false};
-    uint32_t m_toRemove{0};
-    std::stringstream m_buffer{};
-    uint32_t m_arrayWriteIndex{0};
-    std::array<char, static_cast<uint32_t>(NMEADecoderConstants::NMEA_BUFFER)> m_bufferForNextNMEAMessage{};
-    NMEADecoderConstants m_nextNMEAMessage{NMEADecoderConstants::UNKNOWN};
 };
 
 #endif
