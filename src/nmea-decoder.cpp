@@ -46,9 +46,9 @@ void NMEADecoder::decode(const std::string &data, std::chrono::system_clock::tim
       size_t bytesToCopy{((NMEADecoderConstants::BUFFER_SIZE - m_size) < bytesAvailable) ? (NMEADecoderConstants::BUFFER_SIZE - m_size) : bytesAvailable};
       std::memcpy(m_buffer+m_size, data.data(), bytesToCopy);
       // Store how much we copied.
-      bytesCopied = bytesToCopy;
+      bytesCopied += bytesToCopy;
       // Booking for the m_buffer fill level.
-      m_size += bytesCopied;
+      m_size += bytesToCopy;
       // Consume data from m_buffer.
       size_t consumed = parseBuffer(m_buffer, m_size, std::move(tp));
       // Discard processed entries.
