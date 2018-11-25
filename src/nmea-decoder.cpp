@@ -52,7 +52,7 @@ void NMEADecoder::decode(const std::string &data, std::chrono::system_clock::tim
       // Consume data from m_buffer.
       size_t consumed = parseBuffer(m_buffer, m_size, std::move(tp));
       // Discard processed entries.
-      for (size_t i{0}; i < (m_size - consumed); i++) {
+      for (size_t i{0}; (0 < consumed) && (i < (m_size - consumed)); i++) {
           m_buffer[i] = m_buffer[i + consumed];
       }
       m_size -= consumed;
@@ -81,7 +81,7 @@ size_t NMEADecoder::parseBuffer(const uint8_t *buffer, const size_t size, std::c
     while (true) {
         // Sanity check whether we consumed all data.
         if ((offset + NMEADecoderConstants::HEADER_SIZE) > size) {
-            return size;
+            return offset;
         }
 
         if ( ('G' == buffer[offset + 3]) &&
