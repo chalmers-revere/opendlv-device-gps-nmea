@@ -79,11 +79,10 @@ int32_t main(int32_t argc, char **argv) {
         const std::string NMEA_ADDRESS(commandlineArguments["nmea_ip"]);
         const uint16_t NMEA_PORT(std::stoi(commandlineArguments["nmea_port"]));
 
-        cluon::TCPConnection fromDevice{NMEA_ADDRESS, NMEA_PORT,
-            [&decoder = nmeaDecoder](std::string &&d, std::chrono::system_clock::time_point &&tp) noexcept {
+        cluon::UDPReceiver fromDevice{NMEA_ADDRESS, NMEA_PORT,
+            [&decoder = nmeaDecoder](std::string &&d, std::string &&/*from*/, std::chrono::system_clock::time_point &&tp) noexcept {
                 decoder.decode(d, std::move(tp));
-            },
-            [&argv](){ std::cerr << "[" << argv[0] << "] Connection lost." << std::endl; exit(1); }
+            }
         };
 
         // Just sleep as this microservice is data driven.
