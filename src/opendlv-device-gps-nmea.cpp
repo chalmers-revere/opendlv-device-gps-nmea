@@ -32,12 +32,16 @@ int32_t main(int32_t argc, char **argv) {
     auto commandlineArguments = cluon::getCommandlineArguments(argc, argv);
     if ( (0 == commandlineArguments.count("nmea_ip")) || (0 == commandlineArguments.count("nmea_port")) || (0 == commandlineArguments.count("cid")) ) {
         std::cerr << argv[0] << " decodes latitude/longitude/heading from a Trimble GPS/INSS unit in NMEA format and publishes it to a running OpenDaVINCI session using the OpenDLV Standard Message Set." << std::endl;
-        std::cerr << "Usage:   " << argv[0] << " --nmea_ip=<IPv4-address> --nmea_port=<port> --cid=<OpenDaVINCI session> [--id=<Identifier in case of multiple OxTS units>] [--verbose]" << std::endl;
+        std::cerr << "Usage:   " << argv[0] << " --nmea_ip=<IPv4-address> --nmea_port=<port> --cid=<OpenDaVINCI session> [--id=<Identifier in case of multiple OxTS units>] [--udp] [--verbose]" << std::endl;
+        std::cerr << "         --nmea_ip:      IP address of the NMEA providing server to connect to" << std::endl;
+        std::cerr << "         --nmea_port:    port of the NMEA providing server to connect to" << std::endl;
+        std::cerr << "         --udp:          the given IP-address/port is specifying a local UDP receiver to let a UDP-based provider connect to us" << std::endl;
         std::cerr << "Example: " << argv[0] << " --nmea_ip=10.42.42.112 --nmea_port=9999 --cid=111" << std::endl;
         retCode = 1;
     } else {
         const uint32_t ID{(commandlineArguments["id"].size() != 0) ? static_cast<uint32_t>(std::stoi(commandlineArguments["id"])) : 0};
         const bool VERBOSE{commandlineArguments.count("verbose") != 0};
+        const bool IS_UDP{commandlineArguments.count("udp") != 0};
 
         // Interface to a running OpenDaVINCI session (ignoring any incoming Envelopes).
         cluon::OD4Session od4{static_cast<uint16_t>(std::stoi(commandlineArguments["cid"])),
@@ -79,16 +83,32 @@ int32_t main(int32_t argc, char **argv) {
         const std::string NMEA_ADDRESS(commandlineArguments["nmea_ip"]);
         const uint16_t NMEA_PORT(std::stoi(commandlineArguments["nmea_port"]));
 
-        cluon::UDPReceiver fromDevice{NMEA_ADDRESS, NMEA_PORT,
-            [&decoder = nmeaDecoder](std::string &&d, std::string &&/*from*/, std::chrono::system_clock::time_point &&tp) noexcept {
-                decoder.decode(d, std::move(tp));
-            }
-        };
+        if (IS_UDP) {
+            cluon::UDPReceiver fromDevice{NMEA_ADDRESS, NMEA_PORT,
+                [&decoder = nmeaDecoder](std::string &&d, std::string &&/*from*/, std::chrono::system_clock::time_point &&tp) noexcept {
+                    decoder.decode(d, std::move(tp));
+                }
+            };
 
-        // Just sleep as this microservice is data driven.
-        using namespace std::literals::chrono_literals;
-        while (od4.isRunning()) {
-            std::this_thread::sleep_for(1s);
+            // Just sleep as this microservice is data driven.
+            using namespace std::literals::chrono_literals;
+            while (od4.isRunning()) {
+                std::this_thread::sleep_for(1s);
+            }
+        }
+        else {
+            cluon::TCPConnection fromDevice{NMEA_ADDRESS, NMEA_PORT,
+                [&decoder = nmeaDecoder](std::string &&d, std::chrono::system_clock::time_point &&tp) noexcept {
+                    decoder.decode(d, std::move(tp));
+                },
+                [&argv](){ std::cerr << "[" << argv[0] << "] Connection lost." << std::endl; exit(1); }
+            };
+
+            // Just sleep as this microservice is data driven.
+            using namespace std::literals::chrono_literals;
+            while (od4.isRunning()) {
+                std::this_thread::sleep_for(1s);
+            }
         }
     }
     return retCode;
