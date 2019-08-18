@@ -40,7 +40,6 @@ NMEADecoder::~NMEADecoder() {
 void NMEADecoder::decode(const std::string &data, std::chrono::system_clock::time_point &&tp) noexcept {
     const size_t bytesAvailable{data.size()};
     size_t bytesCopied{0};
-
     while (bytesCopied != bytesAvailable) {
       // How many bytes can we store in our buffer?
       size_t bytesToCopy{((NMEADecoderConstants::BUFFER_SIZE - m_size) < bytesAvailable) ? (NMEADecoderConstants::BUFFER_SIZE - m_size) : bytesAvailable};
@@ -67,8 +66,9 @@ size_t NMEADecoder::parseBuffer(const uint8_t *buffer, const size_t size, std::c
     auto findCRLF = [](const uint8_t *_buffer, const size_t _offset, const size_t _size){
         size_t length{0};
         for(size_t i{0}; (_offset + NMEADecoderConstants::HEADER_SIZE + i + 1) < _size; i++) {
-            if ( ('\r' == _buffer[_offset + NMEADecoderConstants::HEADER_SIZE + i]) &&
-                ('\n' == _buffer[_offset + NMEADecoderConstants::HEADER_SIZE + i + 1]) ) {
+            if ( ( ('\r' == _buffer[_offset + NMEADecoderConstants::HEADER_SIZE + i]) &&
+                   ('\n' == _buffer[_offset + NMEADecoderConstants::HEADER_SIZE + i + 1]) ) ||
+                   ('\n' == _buffer[_offset + NMEADecoderConstants::HEADER_SIZE + i]) ) {
                 length = NMEADecoderConstants::HEADER_SIZE + i + 1;
                 break;
             }
