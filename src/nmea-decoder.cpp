@@ -25,10 +25,12 @@
 
 NMEADecoder::NMEADecoder(
     std::function<void(const double &latitude, const double &longitude, const std::chrono::system_clock::time_point &tp)> delegateLatitudeLongitude,
-    std::function<void(const float &heading, const std::chrono::system_clock::time_point &tp)> delegateHeading
+    std::function<void(const float &heading, const std::chrono::system_clock::time_point &tp)> delegateHeading,
+    std::function<void(const float &speed, const std::chrono::system_clock::time_point &tp)> delegateSpeed
     ) noexcept
     : m_delegateLatitudeLongitude(std::move(delegateLatitudeLongitude))
-    , m_delegateHeading(std::move(delegateHeading)) {
+    , m_delegateHeading(std::move(delegateHeading))
+    , m_delegateSpeed(std::move(delegateSpeed)) {
     m_buffer = new uint8_t[NMEADecoderConstants::BUFFER_SIZE];
 }
 
@@ -142,6 +144,11 @@ size_t NMEADecoder::parseBuffer(const uint8_t *buffer, const size_t size, std::c
                     const float heading = static_cast<float>(std::stod(fields[8]) / 180.0 * M_PI);
                     if (nullptr != m_delegateHeading) {
                         m_delegateHeading(heading, timestamp);
+                    }
+
+                    const float speed = static_cast<float>(std::stod(fields[7]) * 0.514444f);
+                    if (nullptr != m_delegateSpeed) {
+                        m_delegateSpeed(speed, timestamp);
                     }
                 }
             }

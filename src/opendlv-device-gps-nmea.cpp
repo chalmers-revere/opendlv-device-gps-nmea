@@ -76,6 +76,20 @@ int32_t main(int32_t argc, char **argv) {
                              []() {});
                     std::cout << buffer.str() << std::endl;
                 }
+            },
+            [&od4Session = od4, senderStamp = ID, VERBOSE](const float &speed, const std::chrono::system_clock::time_point &tp) {
+                opendlv::proxy::GroundSpeedReading m;
+                m.groundSpeed(speed);
+                od4Session.send(m, cluon::time::convert(tp), senderStamp);
+
+                // Print values on console.
+                if (VERBOSE) {
+                    std::stringstream buffer;
+                    m.accept([](uint32_t, const std::string &, const std::string &) {},
+                             [&buffer](uint32_t, std::string &&, std::string &&n, auto v) { buffer << n << " = " << std::setprecision(9) << v << '\n'; },
+                             []() {});
+                    std::cout << buffer.str() << std::endl;
+                }
             }
         };
 

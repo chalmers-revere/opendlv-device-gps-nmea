@@ -31,7 +31,8 @@ class NMEADecoder {
 
    public:
     NMEADecoder(std::function<void(const double &latitude, const double &longitude, const std::chrono::system_clock::time_point &tp)> delegateLatitudeLongitude,
-                std::function<void(const float &heading, const std::chrono::system_clock::time_point &tp)> delegateHeading) noexcept;
+                std::function<void(const float &heading, const std::chrono::system_clock::time_point &tp)> delegateHeading,
+                std::function<void(const float &speed, const std::chrono::system_clock::time_point &tp)> delegateSpeed) noexcept;
     ~NMEADecoder();
 
    public:
@@ -47,6 +48,7 @@ class NMEADecoder {
    private:
     std::function<void(const double &latitude, const double &longitude, const std::chrono::system_clock::time_point &tp)> m_delegateLatitudeLongitude{};
     std::function<void(const float &heading, const std::chrono::system_clock::time_point &tp)> m_delegateHeading{};
+    std::function<void(const float &speed, const std::chrono::system_clock::time_point &tp)> m_delegateSpeed{};
 };
 
 #endif
