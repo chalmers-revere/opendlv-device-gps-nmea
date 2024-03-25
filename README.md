@@ -1,3 +1,5 @@
+Moved to https://git.opendlv.org.
+
 ## OpenDLV Microservice to interface with Trimble GPS/INSS units
 
 This repository provides source code to interface with a Trimble GPS/INSS unit
